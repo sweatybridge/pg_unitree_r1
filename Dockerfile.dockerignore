@@ -2,4 +2,4 @@
 **/build
 **/*.bc
 **/*.o
-**/*.so
+pg_unitree_r1/*.so
