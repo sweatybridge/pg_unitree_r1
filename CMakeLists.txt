@@ -10,7 +10,14 @@ if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
   message(FATAL_ERROR "pg_unitree_r1 supports Linux only")
 endif()
 
-file(READ "${CMAKE_CURRENT_SOURCE_DIR}/pg_unitree_r1.control" extension_control)
+set(EXTENSION_CONTROL "${CMAKE_CURRENT_SOURCE_DIR}/pg_unitree_r1.control")
+set_property(
+  DIRECTORY
+  APPEND
+  PROPERTY CMAKE_CONFIGURE_DEPENDS "${EXTENSION_CONTROL}"
+)
+
+file(READ "${EXTENSION_CONTROL}" extension_control)
 string(
   REGEX MATCH
   "default_version[ \t]*=[ \t]*'([^']+)'"
@@ -139,7 +146,12 @@ set_target_properties(
     VISIBILITY_INLINES_HIDDEN YES
     INSTALL_RPATH "$ORIGIN"
 )
-target_compile_definitions(pg_unitree_r1 PRIVATE _GNU_SOURCE)
+target_compile_definitions(
+  pg_unitree_r1
+  PRIVATE
+    _GNU_SOURCE
+    PG_UNITREE_R1_VERSION=\"${PG_UNITREE_R1_VERSION}\"
+)
 target_compile_options(pg_unitree_r1 PRIVATE -Wall -Wextra -Wformat-security -fno-strict-aliasing -fwrapv)
 target_include_directories(
   pg_unitree_r1
