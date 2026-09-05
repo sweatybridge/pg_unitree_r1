@@ -72,15 +72,11 @@ jobs:
           echo "Preparing ${tag} (previous version: ${previous_version:-none})"
 
   package:
-    name: Package PostgreSQL ${{ matrix.postgres }}
+    name: Package PostgreSQL 18
     needs: version
     if: needs.version.outputs.changed == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        postgres: ["17", "18"]
     steps:
       - name: Check out Unitree SDK2
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -100,27 +96,27 @@ jobs:
         working-directory: unitree_sdk2
         run: >-
           docker build
-          --build-arg PG_MAJOR=${{ matrix.postgres }}
+          --build-arg PG_MAJOR=18
           --file pg_unitree_r1/Dockerfile
-          --tag pg-unitree-r1-release:${{ matrix.postgres }}
+          --tag pg-unitree-r1-release:18
           .
 
       - name: Run native, SQL, and worker smoke tests
         working-directory: unitree_sdk2
-        run: ./pg_unitree_r1/tests/ci.sh pg-unitree-r1-release:${{ matrix.postgres }} ${{ matrix.postgres }}
+        run: ./pg_unitree_r1/tests/ci.sh pg-unitree-r1-release:18 18
 
       - name: Package extension
         working-directory: unitree_sdk2
         run: >-
           ./pg_unitree_r1/scripts/package-release.sh
-          pg-unitree-r1-release:${{ matrix.postgres }}
-          ${{ matrix.postgres }}
+          pg-unitree-r1-release:18
+          18
           ${{ needs.version.outputs.version }}
 
       - name: Upload release package
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: pg_unitree_r1-${{ needs.version.outputs.version }}-pg${{ matrix.postgres }}-linux-x86_64
+          name: pg_unitree_r1-${{ needs.version.outputs.version }}-pg18-linux-x86_64
           path: |
             unitree_sdk2/pg_unitree_r1/dist/*.tar.gz
             unitree_sdk2/pg_unitree_r1/dist/*.sha256
@@ -147,8 +143,8 @@ jobs:
         working-directory: dist
         run: |
           set -Eeuo pipefail
-          test "$(find . -maxdepth 1 -name '*.tar.gz' -type f | wc -l)" -eq 2
-          test "$(find . -maxdepth 1 -name '*.sha256' -type f | wc -l)" -eq 2
+          test "$(find . -maxdepth 1 -name '*.tar.gz' -type f | wc -l)" -eq 1
+          test "$(find . -maxdepth 1 -name '*.sha256' -type f | wc -l)" -eq 1
           sha256sum --check ./*.sha256
 
       - name: Create GitHub release

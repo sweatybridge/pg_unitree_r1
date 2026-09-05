@@ -15,13 +15,9 @@ concurrency:
 
 jobs:
   build-and-test:
-    name: PostgreSQL ${{ matrix.postgres }}
+    name: PostgreSQL 18
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        postgres: ["17", "18"]
 
     steps:
       - name: Check out Unitree SDK2
@@ -42,11 +38,11 @@ jobs:
         working-directory: unitree_sdk2
         run: >-
           docker build
-          --build-arg PG_MAJOR=${{ matrix.postgres }}
+          --build-arg PG_MAJOR=18
           --file pg_unitree_r1/Dockerfile
-          --tag pg-unitree-r1-ci:${{ matrix.postgres }}
+          --tag pg-unitree-r1-ci:18
           .
 
       - name: Run native, SQL, and worker smoke tests
         working-directory: unitree_sdk2
-        run: ./pg_unitree_r1/tests/ci.sh pg-unitree-r1-ci:${{ matrix.postgres }} ${{ matrix.postgres }}
+        run: ./pg_unitree_r1/tests/ci.sh pg-unitree-r1-ci:18 18

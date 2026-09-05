@@ -59,25 +59,23 @@ beside the extension module because this Windows checkout stores the `.so.0`
 symlinks as text files.
 
 The included Docker build verifies the core, compiles the module, and installs
-it into PostgreSQL 17 by default. Run these commands from the SDK2 root because
-the SDK is the Docker build context:
+it into PostgreSQL 18. Run this command from the SDK2 root because the SDK is
+the Docker build context:
 
 ```sh
 cd ..
 docker build -f pg_unitree_r1/Dockerfile -t pg-unitree-r1 .
-docker build --build-arg PG_MAJOR=18 \
-  -f pg_unitree_r1/Dockerfile -t pg-unitree-r1:pg18 .
 ```
 
-CI pins the SDK checkout used for reproducible PostgreSQL 17 and 18 builds.
+CI pins the SDK checkout used for reproducible PostgreSQL 18 builds.
 
 ## Releases
 
 Updating `default_version` in `pg_unitree_r1.control` on `main` triggers the
 release workflow. The matching install script must exist at
-`sql/pg_unitree_r1--VERSION.sql`. The workflow reruns the full PostgreSQL 17 and
-18 test matrix, then publishes versioned Linux `x86_64` packages and SHA-256
-checksums to a `vVERSION` GitHub release.
+`sql/pg_unitree_r1--VERSION.sql`. The workflow reruns the full PostgreSQL 18
+test suite, then publishes a versioned Linux `x86_64` package and SHA-256
+checksum to a `vVERSION` GitHub release.
 
 Each archive contains the extension module, its Cyclone DDS runtime libraries,
 the control file, and the versioned SQL install script under a PostgreSQL-major
