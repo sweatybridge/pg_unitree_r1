@@ -1,6 +1,7 @@
 name: Release
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
@@ -31,6 +32,7 @@ jobs:
         id: version
         env:
           BEFORE_SHA: ${{ github.event.before }}
+          EVENT_NAME: ${{ github.event_name }}
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -45,15 +47,20 @@ jobs:
             exit 1
           fi
 
-          previous_version="$(
-            git show "${BEFORE_SHA}:pg_unitree_r1.control" 2>/dev/null |
-              read_version || true
-          )"
-          if [[ "${version}" == "${previous_version}" ]]; then
-            echo "changed=false" >> "${GITHUB_OUTPUT}"
-            echo "version=${version}" >> "${GITHUB_OUTPUT}"
-            echo "default_version remains ${version}; no release will be created"
-            exit 0
+          previous_version=""
+          if [[ "${EVENT_NAME}" == "push" ]]; then
+            previous_version="$(
+              git show "${BEFORE_SHA}:pg_unitree_r1.control" 2>/dev/null |
+                read_version || true
+            )"
+            if [[ "${version}" == "${previous_version}" ]]; then
+              echo "changed=false" >> "${GITHUB_OUTPUT}"
+              echo "version=${version}" >> "${GITHUB_OUTPUT}"
+              echo "default_version remains ${version}; no release will be created"
+              exit 0
+            fi
+          else
+            echo "Manual release requested for v${version}"
           fi
 
           if [[ ! -f "sql/pg_unitree_r1--${version}.sql" ]]; then
