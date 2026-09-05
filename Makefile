@@ -1,7 +1,12 @@
 EXTENSION = pg_unitree_r1
 MODULE_big = pg_unitree_r1
 OBJS = src/extension.o src/unitree_gateway.o src/control_core.o
-DATA = sql/pg_unitree_r1--0.1.0.sql
+EXTVERSION := $(shell awk -F"'" '/^default_version[[:space:]]*=/{print $$2; exit}' '$(CURDIR)/pg_unitree_r1.control')
+DATA = sql/pg_unitree_r1--$(EXTVERSION).sql
+
+ifeq ($(strip $(EXTVERSION)),)
+$(error could not read default_version from pg_unitree_r1.control)
+endif
 
 UNITREE_ROOT ?= ..
 UNITREE_ARCH ?= $(shell uname -m)

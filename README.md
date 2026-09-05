@@ -71,6 +71,25 @@ docker build --build-arg PG_MAJOR=18 \
 
 CI pins the SDK checkout used for reproducible PostgreSQL 17 and 18 builds.
 
+## Releases
+
+Updating `default_version` in `pg_unitree_r1.control` on `main` triggers the
+release workflow. The matching install script must exist at
+`sql/pg_unitree_r1--VERSION.sql`. The workflow reruns the full PostgreSQL 17 and
+18 test matrix, then publishes versioned Linux `x86_64` packages and SHA-256
+checksums to a `vVERSION` GitHub release.
+
+Each archive contains the extension module, its Cyclone DDS runtime libraries,
+the control file, and the versioned SQL install script under a PostgreSQL-major
+specific `usr/` tree. Extract the archive, inspect it, then install it with:
+
+```sh
+sudo cp -a pg_unitree_r1-VERSION-pgMAJOR-linux-x86_64/usr/. /usr/
+```
+
+Released extension versions are immutable. If the `vVERSION` tag already
+exists, the workflow fails instead of replacing its assets.
+
 ## Configure PostgreSQL
 
 The worker is static and must be preloaded. Add settings like these to

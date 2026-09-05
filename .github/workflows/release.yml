@@ -1,0 +1,166 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - pg_unitree_r1.control
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  version:
+    name: Detect version update
+    runs-on: ubuntu-24.04
+    outputs:
+      changed: ${{ steps.version.outputs.changed }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Check out pg_unitree_r1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Read extension version
+        id: version
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          read_version() {
+            sed -nE "s/^default_version[[:space:]]*=[[:space:]]*'([^']+)'/\1/p" | head -n 1
+          }
+
+          version="$(read_version < pg_unitree_r1.control)"
+          if [[ ! "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error file=pg_unitree_r1.control::Invalid default_version '${version}'"
+            exit 1
+          fi
+
+          previous_version="$(
+            git show "${BEFORE_SHA}:pg_unitree_r1.control" 2>/dev/null |
+              read_version || true
+          )"
+          if [[ "${version}" == "${previous_version}" ]]; then
+            echo "changed=false" >> "${GITHUB_OUTPUT}"
+            echo "version=${version}" >> "${GITHUB_OUTPUT}"
+            echo "default_version remains ${version}; no release will be created"
+            exit 0
+          fi
+
+          if [[ ! -f "sql/pg_unitree_r1--${version}.sql" ]]; then
+            echo "::error file=pg_unitree_r1.control::Missing sql/pg_unitree_r1--${version}.sql"
+            exit 1
+          fi
+
+          tag="v${version}"
+          if git ls-remote --exit-code --tags origin "refs/tags/${tag}" >/dev/null 2>&1; then
+            echo "::error::Tag ${tag} already exists; extension versions are immutable"
+            exit 1
+          fi
+
+          echo "changed=true" >> "${GITHUB_OUTPUT}"
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "Preparing ${tag} (previous version: ${previous_version:-none})"
+
+  package:
+    name: Package PostgreSQL ${{ matrix.postgres }}
+    needs: version
+    if: needs.version.outputs.changed == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        postgres: ["17", "18"]
+    steps:
+      - name: Check out Unitree SDK2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: unitreerobotics/unitree_sdk2
+          ref: 9754cd153af3da471b0fe5f3aa535e426fb11db3
+          path: unitree_sdk2
+          persist-credentials: false
+
+      - name: Check out pg_unitree_r1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: unitree_sdk2/pg_unitree_r1
+          persist-credentials: false
+
+      - name: Build PostgreSQL extension
+        working-directory: unitree_sdk2
+        run: >-
+          docker build
+          --build-arg PG_MAJOR=${{ matrix.postgres }}
+          --file pg_unitree_r1/Dockerfile
+          --tag pg-unitree-r1-release:${{ matrix.postgres }}
+          .
+
+      - name: Run native, SQL, and worker smoke tests
+        working-directory: unitree_sdk2
+        run: ./pg_unitree_r1/tests/ci.sh pg-unitree-r1-release:${{ matrix.postgres }} ${{ matrix.postgres }}
+
+      - name: Package extension
+        working-directory: unitree_sdk2
+        run: >-
+          ./pg_unitree_r1/scripts/package-release.sh
+          pg-unitree-r1-release:${{ matrix.postgres }}
+          ${{ matrix.postgres }}
+          ${{ needs.version.outputs.version }}
+
+      - name: Upload release package
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pg_unitree_r1-${{ needs.version.outputs.version }}-pg${{ matrix.postgres }}-linux-x86_64
+          path: |
+            unitree_sdk2/pg_unitree_r1/dist/*.tar.gz
+            unitree_sdk2/pg_unitree_r1/dist/*.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+
+  release:
+    name: Publish GitHub release
+    needs: [version, package]
+    if: needs.version.outputs.changed == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download release packages
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: pg_unitree_r1-*
+          path: dist
+          merge-multiple: true
+
+      - name: Verify release packages
+        working-directory: dist
+        run: |
+          set -Eeuo pipefail
+          test "$(find . -maxdepth 1 -name '*.tar.gz' -type f | wc -l)" -eq 2
+          test "$(find . -maxdepth 1 -name '*.sha256' -type f | wc -l)" -eq 2
+          sha256sum --check ./*.sha256
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: >-
+          gh release create "v${VERSION}"
+          dist/*.tar.gz
+          dist/*.sha256
+          --repo "${GITHUB_REPOSITORY}"
+          --target "${GITHUB_SHA}"
+          --title "pg_unitree_r1 ${VERSION}"
+          --generate-notes
+          --fail-on-no-commits
