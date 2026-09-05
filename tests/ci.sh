@@ -32,13 +32,14 @@ wait_for_postgres() {
 }
 
 start_postgres() {
-  docker run --rm --detach --name "${container}" \
+  docker run --detach --name "${container}" \
     --env POSTGRES_PASSWORD=test "${image}" "$@" >/dev/null
   wait_for_postgres
 }
 
 stop_postgres() {
   docker stop "${container}" >/dev/null
+  docker rm "${container}" >/dev/null
 }
 
 wait_for_query() {
