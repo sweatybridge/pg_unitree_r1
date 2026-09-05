@@ -1,0 +1,5 @@
+comment = 'Embedded PostgreSQL gateway for Unitree R1 high- and low-level control'
+default_version = '0.1.0'
+module_pathname = '$libdir/pg_unitree_r1'
+relocatable = false
+superuser = true
