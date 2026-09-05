@@ -3,4 +3,4 @@
 **/dist
 **/*.bc
 **/*.o
-pg_unitree_r1/*.so
+**/*.so

@@ -59,7 +59,7 @@ wait_for_query() {
   return 1
 }
 
-docker run --rm "${image}" /src/pg_unitree_r1/build/control_core_test
+docker run --rm "${image}" /src/build/control_core_test
 
 start_postgres
 docker cp "${sql_contract}" \

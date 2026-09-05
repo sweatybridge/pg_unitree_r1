@@ -4,7 +4,7 @@ ARG PG_MAJOR
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-       g++ make postgresql-server-dev-${PG_MAJOR} \
+       ca-certificates cmake g++ git make postgresql-server-dev-${PG_MAJOR} \
     && rm -rf /var/lib/apt/lists/*
 
 FROM build-env AS extension
@@ -12,7 +12,7 @@ FROM build-env AS extension
 WORKDIR /src
 COPY . /src
 
-RUN make -C pg_unitree_r1 clean \
-    && make -C pg_unitree_r1 core-test \
-    && make -C pg_unitree_r1 -j"$(nproc)" \
-    && make -C pg_unitree_r1 install
+RUN cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
+    && cmake --build build --parallel "$(nproc)" \
+    && ctest --test-dir build --output-on-failure \
+    && cmake --install build

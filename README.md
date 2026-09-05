@@ -34,40 +34,44 @@ automatically resumed.
 
 ## Build and install
 
-Requirements are Linux on `x86_64` or `aarch64`, PostgreSQL server development
-headers, GNU Make, a C++17 compiler, and a Unitree SDK2 checkout. Clone this
-repository inside SDK2 so its default `UNITREE_ROOT=..` resolves correctly:
+Requirements are Linux on `x86_64` or `aarch64`, PostgreSQL 18 server
+development headers, Git, CMake 3.24 or newer, and a C++17 compiler. Only this
+repository needs to be cloned:
 
 ```sh
-git clone https://github.com/unitreerobotics/unitree_sdk2.git
-git clone https://github.com/sweatybridge/pg_unitree_r1.git \
-  unitree_sdk2/pg_unitree_r1
-cd unitree_sdk2/pg_unitree_r1
+git clone https://github.com/sweatybridge/pg_unitree_r1.git
+cd pg_unitree_r1
 ```
 
-Then build from the extension directory:
+CMake fetches the pinned official Unitree SDK2 checkout during configuration,
+then builds and installs the extension:
 
 ```sh
-make core-test
-make -j$(nproc)
-sudo make install
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
+ctest --test-dir build --output-on-failure
+sudo cmake --install build
 ```
 
-`UNITREE_ROOT` defaults to the repository root (`..`) and `UNITREE_ARCH`
-defaults to `uname -m`. Installation copies the bundled Cyclone DDS libraries
-beside the extension module because this Windows checkout stores the `.so.0`
-symlinks as text files.
+Unitree's public SDK2 repository currently provides headers and
+architecture-specific prebuilt libraries, not the SDK implementation sources.
+The extension is compiled from source; the fetched Unitree and Cyclone DDS
+libraries are linked in the form published by Unitree.
+
+The Unitree dependency is pinned to a commit for reproducibility and cached in
+the CMake build directory. For offline development, point
+`FETCHCONTENT_SOURCE_DIR_UNITREE_SDK2` at an existing SDK2 checkout during
+configuration. Installation copies the fetched Cyclone DDS runtime libraries
+beside the extension module.
 
 The included Docker build verifies the core, compiles the module, and installs
-it into PostgreSQL 18. Run this command from the SDK2 root because the SDK is
-the Docker build context:
+it into PostgreSQL 18 from a standalone clone:
 
 ```sh
-cd ..
-docker build -f pg_unitree_r1/Dockerfile -t pg-unitree-r1 .
+docker build -t pg-unitree-r1 .
 ```
 
-CI pins the SDK checkout used for reproducible PostgreSQL 18 builds.
+CI exercises this same clone-free CMake path.
 
 ## Releases
 
